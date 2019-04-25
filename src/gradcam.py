@@ -7,7 +7,7 @@ from PIL import Image
 import numpy as np
 import torch
 
-from misc_functions import get_example_params, save_class_activation_images
+from pytorch_cnn_visualisations.src.misc_functions import get_example_params, save_class_activation_images
 
 
 class CamExtractor():
