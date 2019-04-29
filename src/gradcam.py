@@ -6,7 +6,6 @@ Created on Thu Oct 26 11:06:51 2017
 from PIL import Image
 import numpy as np
 import torch
-
 from pytorch_cnn_visualisations.src.misc_functions import get_example_params, save_class_activation_images
 
 
@@ -27,7 +26,7 @@ class CamExtractor():
             Does a forward pass on convolutions, hooks the function at given layer
         """
         conv_output = None
-        # for module_pos, module in self.model.features._modules.items():
+#         for module_pos, module in self.model.features._modules.items():
         children = list(self.model.children())[:-1]
         for module_pos, module in enumerate(children):
             print(module)
@@ -46,7 +45,7 @@ class CamExtractor():
         # Forward pass on the convolutions
         conv_output, x = self.forward_pass_on_convolutions(x)
         x = x.view(x.size(0), -1)  # Flatten
-        # Forward pass on the classifier
+#         # Forward pass on the classifier
         x = self.model.fc(x)
         return conv_output, x
 
@@ -75,7 +74,7 @@ class GradCam():
         one_hot_output = torch.FloatTensor(1, model_output.size()[-1]).zero_()
         one_hot_output[0][target_class] = 1
         # Zero grads
-        #         self.model.parameters().zero_grad()
+#         self.model.parameters().zero_grad()
         self.model.fc.zero_grad()
         # Backward pass with specified target
         model_output.backward(gradient=one_hot_output, retain_graph=True)
@@ -94,13 +93,14 @@ class GradCam():
         cam = (cam - np.min(cam)) / (np.max(cam) - np.min(cam))  # Normalize between 0-1
         cam = np.uint8(cam * 255)  # Scale between 0-255 to visualize
         cam = np.uint8(Image.fromarray(cam).resize((input_image.shape[2],
-                                                    input_image.shape[3]), Image.ANTIALIAS))
+                       input_image.shape[3]), Image.ANTIALIAS))
         # ^ I am extremely unhappy with this line. Originally resizing was done in cv2 which
         # supports resizing numpy matrices, however, when I moved the repository to PIL, this
         # option is out of the window. So, in order to use resizing with ANTIALIAS feature of PIL,
         # I briefly convert matrix to PIL image and then back.
         # If there is a more beautiful way, send a PR.
         return cam
+
 
 if __name__ == '__main__':
     # Get params
