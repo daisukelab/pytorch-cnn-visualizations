@@ -60,15 +60,18 @@ class GradCam():
         # Full forward pass
         # conv_output is the output of convolutions at specified layer
         # model_output is the final output of the model (1, 1000)
+        print(input_image.shape)
         conv_output, model_output = self.extractor.forward_pass(input_image)
+        print(conv_output.shape)
+        print(model_output)
         if target_class is None:
             target_class = np.argmax(model_output.data.numpy())
         # Target for backprop
         one_hot_output = torch.FloatTensor(1, model_output.size()[-1]).zero_()
         one_hot_output[0][target_class] = 1
         # Zero grads
-        self.model.features.zero_grad()
-        self.model.classifier.zero_grad()
+        #         self.model.parameters().zero_grad()
+        self.model.fc.zero_grad()
         # Backward pass with specified target
         model_output.backward(gradient=one_hot_output, retain_graph=True)
         # Get hooked gradients
@@ -86,14 +89,13 @@ class GradCam():
         cam = (cam - np.min(cam)) / (np.max(cam) - np.min(cam))  # Normalize between 0-1
         cam = np.uint8(cam * 255)  # Scale between 0-255 to visualize
         cam = np.uint8(Image.fromarray(cam).resize((input_image.shape[2],
-                       input_image.shape[3]), Image.ANTIALIAS))
+                                                    input_image.shape[3]), Image.ANTIALIAS))
         # ^ I am extremely unhappy with this line. Originally resizing was done in cv2 which
         # supports resizing numpy matrices, however, when I moved the repository to PIL, this
         # option is out of the window. So, in order to use resizing with ANTIALIAS feature of PIL,
         # I briefly convert matrix to PIL image and then back.
         # If there is a more beautiful way, send a PR.
         return cam
-
 
 if __name__ == '__main__':
     # Get params
