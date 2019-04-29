@@ -29,9 +29,9 @@ class CamExtractor():
 #         for module_pos, module in self.model.features._modules.items():
         children = list(self.model.children())[:-1]
         for module_pos, module in enumerate(children):
-            print(module)
+            # print(module)
             x = module(x)  # Forward
-            print(x.shape)
+            # print(x.shape)
             if int(module_pos) == self.target_layer:
                 print('hooked')
                 x.register_hook(self.save_gradient)
@@ -64,10 +64,10 @@ class GradCam():
         # Full forward pass
         # conv_output is the output of convolutions at specified layer
         # model_output is the final output of the model (1, 1000)
-        print(input_image.shape)
+        # print(input_image.shape)
         conv_output, model_output = self.extractor.forward_pass(input_image)
-        print(conv_output.shape)
-        print(model_output)
+        # print(conv_output.shape)
+        # print(model_output)
         if target_class is None:
             target_class = np.argmax(model_output.data.numpy())
         # Target for backprop

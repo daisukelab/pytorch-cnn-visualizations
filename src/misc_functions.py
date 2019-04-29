@@ -65,16 +65,16 @@ def save_class_activation_images(org_img, activation_map, file_name):
     heatmap, heatmap_on_image = apply_colormap_on_image(org_img, activation_map, 'hsv')
     # Save colored heatmap
     path_to_file = os.path.join('../results', file_name+'_Cam_Heatmap.png')
-    print(np.max(heatmap))
+    # print(np.max(heatmap))
     save_image(heatmap, path_to_file)
     # Save heatmap on iamge
-    print()
-    print(np.max(heatmap_on_image))
+    # print()
+    # print(np.max(heatmap_on_image))
     path_to_file = os.path.join('../results', file_name+'_Cam_On_Image.png')
     save_image(heatmap_on_image, path_to_file)
     # SAve grayscale heatmap
-    print()
-    print(np.max(activation_map))
+    # print()
+    # print(np.max(activation_map))
     path_to_file = os.path.join('../results', file_name+'_Cam_Grayscale.png')
     save_image(activation_map, path_to_file)
 
@@ -98,8 +98,8 @@ def apply_colormap_on_image(org_im, activation, colormap_name):
 
     # Apply heatmap on iamge
     heatmap_on_image = Image.new("RGBA", org_im.size)
-    print(heatmap_on_image.size)
-    print(heatmap.size)
+    # print(heatmap_on_image.size)
+    # print(heatmap.size)
     heatmap_on_image = Image.alpha_composite(heatmap_on_image, org_im.convert('RGBA'))
     heatmap_on_image = Image.alpha_composite(heatmap_on_image, heatmap)
     return no_trans_heatmap, heatmap_on_image
@@ -117,15 +117,15 @@ def save_image(im, path):
     if isinstance(im, np.ndarray):
         if len(im.shape) == 2:
             im = np.expand_dims(im, axis=0)
-            print('A')
-            print(im.shape)
+            # print('A')
+            # print(im.shape)
         if im.shape[0] == 1:
             # Converting an image with depth = 1 to depth = 3, repeating the same values
             # For some reason PIL complains when I want to save channel image as jpg without
             # additional format in the .save()
-            print('B')
+            # print('B')
             im = np.repeat(im, 3, axis=0)
-            print(im.shape)
+            # print(im.shape)
             # Convert to values to range 1-255 and W,H, D
         # A bandaid fix to an issue with gradcam
         if im.shape[0] == 3 and np.max(im) == 1:
