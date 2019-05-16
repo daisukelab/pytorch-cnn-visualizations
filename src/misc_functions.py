@@ -65,16 +65,11 @@ def save_class_activation_images(org_img, activation_map, file_name):
     heatmap, heatmap_on_image = apply_colormap_on_image(org_img, activation_map, 'hsv')
     # Save colored heatmap
     path_to_file = os.path.join('../results', file_name+'_Cam_Heatmap.png')
-    # print(np.max(heatmap))
     save_image(heatmap, path_to_file)
     # Save heatmap on iamge
-    # print()
-    # print(np.max(heatmap_on_image))
     path_to_file = os.path.join('../results', file_name+'_Cam_On_Image.png')
     save_image(heatmap_on_image, path_to_file)
     # SAve grayscale heatmap
-    # print()
-    # print(np.max(activation_map))
     path_to_file = os.path.join('../results', file_name+'_Cam_Grayscale.png')
     save_image(activation_map, path_to_file)
 
@@ -105,34 +100,81 @@ def apply_colormap_on_image(org_im, activation, colormap_name):
     return no_trans_heatmap, heatmap_on_image
 
 
+def format_np_output(np_arr):
+    """
+        This is a (kind of) bandaid fix to streamline saving procedure.
+        It converts all the outputs to the same format which is 3xWxH
+        with using sucecssive if clauses.
+    Args:
+        im_as_arr (Numpy array): Matrix of shape 1xWxH or WxH or 3xWxH
+    """
+    # Phase/Case 1: The np arr only has 2 dimensions
+    # Result: Add a dimension at the beginning
+    if len(np_arr.shape) == 2:
+        np_arr = np.expand_dims(np_arr, axis=0)
+    # Phase/Case 2: Np arr has only 1 channel (assuming first dim is channel)
+    # Result: Repeat first channel and convert 1xWxH to 3xWxH
+    if np_arr.shape[0] == 1:
+        np_arr = np.repeat(np_arr, 3, axis=0)
+    # Phase/Case 3: Np arr is of shape 3xWxH
+    # Result: Convert it to WxHx3 in order to make it saveable by PIL
+    if np_arr.shape[0] == 3:
+        np_arr = np_arr.transpose(1, 2, 0)
+    # Phase/Case 4: NP arr is normalized between 0-1
+    # Result: Multiply with 255 and change type to make it saveable by PIL
+    if np.max(np_arr) <= 1:
+        np_arr = (np_arr*255).astype(np.uint8)
+    return np_arr
+
+
+# def save_image(im, path):
+#     """
+#         Saves a numpy matrix or PIL image as an image
+#     Args:
+#         im_as_arr (Numpy array): Matrix of shape DxWxH
+#         path (str): Path to the image
+# <<<<<<< HEAD
+#
+#     TODO: Streamline image saving, it is ugly.
+#     """
+#     if isinstance(im, np.ndarray):
+#         if len(im.shape) == 2:
+#             im = np.expand_dims(im, axis=0)
+#             # print('A')
+#             # print(im.shape)
+#         if im.shape[0] == 1:
+#             # Converting an image with depth = 1 to depth = 3, repeating the same values
+#             # For some reason PIL complains when I want to save channel image as jpg without
+#             # additional format in the .save()
+#             # print('B')
+#             im = np.repeat(im, 3, axis=0)
+#             # print(im.shape)
+#             # Convert to values to range 1-255 and W,H, D
+#         # A bandaid fix to an issue with gradcam
+#         if im.shape[0] == 3 and np.max(im) == 1:
+#             im = im.transpose(1, 2, 0) * 255
+#         elif im.shape[0] == 3 and np.max(im) > 1:
+#             im = im.transpose(1, 2, 0)
+#         im = Image.fromarray(im.astype(np.uint8))
+# =======
+#     """
+#     if isinstance(im, (np.ndarray, np.generic)):
+#         im = format_np_output(im)
+#         im = Image.fromarray(im)
+# >>>>>>> upstream/master
+#     im.save(path)
+
+
 def save_image(im, path):
     """
-        Saves a numpy matrix of shape D(1 or 3) x W x H as an image
+        Saves a numpy matrix or PIL image as an image
     Args:
         im_as_arr (Numpy array): Matrix of shape DxWxH
         path (str): Path to the image
-
-    TODO: Streamline image saving, it is ugly.
     """
-    if isinstance(im, np.ndarray):
-        if len(im.shape) == 2:
-            im = np.expand_dims(im, axis=0)
-            # print('A')
-            # print(im.shape)
-        if im.shape[0] == 1:
-            # Converting an image with depth = 1 to depth = 3, repeating the same values
-            # For some reason PIL complains when I want to save channel image as jpg without
-            # additional format in the .save()
-            # print('B')
-            im = np.repeat(im, 3, axis=0)
-            # print(im.shape)
-            # Convert to values to range 1-255 and W,H, D
-        # A bandaid fix to an issue with gradcam
-        if im.shape[0] == 3 and np.max(im) == 1:
-            im = im.transpose(1, 2, 0) * 255
-        elif im.shape[0] == 3 and np.max(im) > 1:
-            im = im.transpose(1, 2, 0)
-        im = Image.fromarray(im.astype(np.uint8))
+    if isinstance(im, (np.ndarray, np.generic)):
+        im = format_np_output(im)
+        im = Image.fromarray(im)
     im.save(path)
 
 
