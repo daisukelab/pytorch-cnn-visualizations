@@ -1,4 +1,21 @@
-# Convolutional Neural Network Visualizations 
+# Convolutional Neural Network Visualizations (Grad-CAM extended)
+
+## Extension to Grad-CAM
+
+1. Support for counterfactual
+
+    Counterfactual heatmap visualization is supported for negative impact visualization.
+
+2. Separating body and head
+
+    Original implementation depends on the last layer to be FC for classification.
+    This is modified so that separate head can be used.
+
+3. HW flexibility
+
+    Added `device` parameter for use with GPU/CPU flexibly.
+
+# ~~ Original README ~~
 
 **Note**: I removed cv2 dependencies and moved the repository towards PIL. A few things might be broken (although I tested all methods), I would appreciate if you could create an issue if something does not work.
 

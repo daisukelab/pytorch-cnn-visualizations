@@ -2,21 +2,38 @@
 Created on Thu Oct 26 11:06:51 2017
 
 @author: Utku Ozbulak - github.com/utkuozbulak
+
+## Modifications for accomodating other type of CNNs
+
+1. Support for counterfactual
+
+Counterfactual heatmap visualization is supported for negative impact visualization.
+
+2. Separating body and head
+
+Original implementation depends on the last layer to be FC for classification.
+This is modified so that separate head can be used.
+
+3. HW flexibility
+
+Added `device` parameter for use with GPU/CPU flexibly.
+
 """
 from PIL import Image
 import numpy as np
 import torch
-from pytorch_cnn_visualisations.src.misc_functions import get_example_params, save_class_activation_images
+from pytorch_cnn_visualizations.src.misc_functions import get_example_params, save_class_activation_images
 
 
 class CamExtractor():
     """
         Extracts cam features from the model
     """
-    def __init__(self, model, target_layer):
+    def __init__(self, model, target_layer, separate_head=None):
         self.model = model
         self.target_layer = target_layer
         self.gradients = None
+        self.separate_head = separate_head
 
     def save_gradient(self, grad):
         self.gradients = grad
@@ -27,7 +44,9 @@ class CamExtractor():
         """
         conv_output = None
 #         for module_pos, module in self.model.features._modules.items():
-        children = list(self.model.children())[:-1]
+        children = list(self.model.children())
+        if self.separate_head is None:
+            children = children[:-1]
         for module_pos, module in enumerate(children):
             # print(module)
             x = module(x)  # Forward
@@ -38,7 +57,7 @@ class CamExtractor():
                 conv_output = x  # Save the convolution output on that layer
         return conv_output, x
 
-    def forward_pass(self, x):
+    def forward_pass(self, x, label):
         """
             Does a full forward pass on the model
         """
@@ -46,7 +65,10 @@ class CamExtractor():
         conv_output, x = self.forward_pass_on_convolutions(x)
         x = x.view(x.size(0), -1)  # Flatten
 #         # Forward pass on the classifier
-        x = self.model.fc(x)
+        if self.separate_head is None:
+            x = self.model.fc(x)
+        else:
+            x = self.separate_head(x, label)
         return conv_output, x
 
 
@@ -54,34 +76,48 @@ class GradCam():
     """
         Produces class activation map
     """
-    def __init__(self, model, target_layer):
+    def __init__(self, model, target_layer, separate_head=None, device=None):
         self.model = model
         self.model.eval()
         # Define extractor
-        self.extractor = CamExtractor(self.model, target_layer)
+        self.extractor = CamExtractor(self.model, target_layer,
+                                      separate_head=separate_head)
+        self.separate_head = separate_head
+        self.device = device
 
-    def generate_cam(self, input_image, target_class=None):
+    def generate_cam(self, input_image, target_class, counterfactual=False):
         # Full forward pass
         # conv_output is the output of convolutions at specified layer
         # model_output is the final output of the model (1, 1000)
         # print(input_image.shape)
-        conv_output, model_output = self.extractor.forward_pass(input_image)
+        label = torch.tensor([target_class])
+        if self.device is not None:
+            input_image = input_image.to(self.device)
+            label = label.to(self.device)
+        conv_output, model_output = self.extractor.forward_pass(input_image, label)
         # print(conv_output.shape)
         # print(model_output)
-        if target_class is None:
-            target_class = np.argmax(model_output.data.numpy())
+        # if target_class is None:
+        #     target_class = np.argmax(model_output.data.numpy())
         # Target for backprop
         one_hot_output = torch.FloatTensor(1, model_output.size()[-1]).zero_()
         one_hot_output[0][target_class] = 1
+        if self.device is not None:
+            one_hot_output = one_hot_output.to(self.device)
         # Zero grads
 #         self.model.parameters().zero_grad()
-        self.model.fc.zero_grad()
+        if self.separate_head is None:
+            x = self.model.fc.zero_grad()
+        else:
+            x = self.separate_head.zero_grad()
         # Backward pass with specified target
         model_output.backward(gradient=one_hot_output, retain_graph=True)
         # Get hooked gradients
-        guided_gradients = self.extractor.gradients.data.numpy()[0]
+        guided_gradients = self.extractor.gradients.data.cpu().numpy()[0]
+        if counterfactual:
+            guided_gradients = -guided_gradients
         # Get convolution outputs
-        target = conv_output.data.numpy()[0]
+        target = conv_output.data.cpu().numpy()[0]
         # Get weights from gradients
         weights = np.mean(guided_gradients, axis=(1, 2))  # Take averages for each gradient
         # Create empty numpy array for cam
