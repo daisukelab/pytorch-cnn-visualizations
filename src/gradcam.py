@@ -22,18 +22,24 @@ Added `device` parameter for use with GPU/CPU flexibly.
 from PIL import Image
 import numpy as np
 import torch
-from pytorch_cnn_visualizations.src.misc_functions import get_example_params, save_class_activation_images
+from .misc_functions import get_example_params, save_class_activation_images
 
 
 class CamExtractor():
+    """Extracts cam features from the model
+
+    Args:
+        model: Body of model.
+        target_layer: Index of body layer to extract CAM.
+        head: Classifier head of model.
+        feed_target: Forward pass will feed (x, target) if True, otherwise feed (x) as usual.
     """
-        Extracts cam features from the model
-    """
-    def __init__(self, model, target_layer, separate_head=None):
+    def __init__(self, model, target_layer, head, feed_target=False):
         self.model = model
         self.target_layer = target_layer
+        self.head = head
+        self.feed_target = feed_target
         self.gradients = None
-        self.separate_head = separate_head
 
     def save_gradient(self, grad):
         self.gradients = grad
@@ -43,10 +49,7 @@ class CamExtractor():
             Does a forward pass on convolutions, hooks the function at given layer
         """
         conv_output = None
-#         for module_pos, module in self.model.features._modules.items():
         children = list(self.model.children())
-        if self.separate_head is None:
-            children = children[:-1]
         for module_pos, module in enumerate(children):
             # print(module)
             x = module(x)  # Forward
@@ -57,18 +60,18 @@ class CamExtractor():
                 conv_output = x  # Save the convolution output on that layer
         return conv_output, x
 
-    def forward_pass(self, x, label):
+    def forward_pass(self, x, target):
         """
             Does a full forward pass on the model
         """
         # Forward pass on the convolutions
         conv_output, x = self.forward_pass_on_convolutions(x)
         x = x.view(x.size(0), -1)  # Flatten
-#         # Forward pass on the classifier
-        if self.separate_head is None:
-            x = self.model.fc(x)
+        # Forward pass on the classifier
+        if self.feed_target:
+            x = self.head(x, target)
         else:
-            x = self.separate_head(x, label)
+            x = self.head(x)
         return conv_output, x
 
 
@@ -76,13 +79,20 @@ class GradCam():
     """
         Produces class activation map
     """
-    def __init__(self, model, target_layer, separate_head=None, device=None):
-        self.model = model
-        self.model.eval()
+    def __init__(self, model, target_layer, separate_head=None, device=None, feed_target=None):
+        # head is usually separated if it is metric learning head.
+        if feed_target is None:
+            feed_target = (separate_head is not None)
+        # separate head anyway
+        if separate_head is None:
+            separate_head = list(model.children())[-1]
+            model = torch.nn.Sequential(*list(model.children())[:-1])
+
+        self.model = model.eval()
+        self.separate_head = separate_head.eval()
         # Define extractor
         self.extractor = CamExtractor(self.model, target_layer,
-                                      separate_head=separate_head)
-        self.separate_head = separate_head
+                                      head=separate_head, feed_target=feed_target)
         self.device = device
 
     def generate_cam(self, input_image, target_class, counterfactual=False):
@@ -105,11 +115,8 @@ class GradCam():
         if self.device is not None:
             one_hot_output = one_hot_output.to(self.device)
         # Zero grads
-#         self.model.parameters().zero_grad()
-        if self.separate_head is None:
-            x = self.model.fc.zero_grad()
-        else:
-            x = self.separate_head.zero_grad()
+        # self.model.parameters().zero_grad()
+        self.separate_head.zero_grad()
         # Backward pass with specified target
         model_output.backward(gradient=one_hot_output, retain_graph=True)
         # Get hooked gradients

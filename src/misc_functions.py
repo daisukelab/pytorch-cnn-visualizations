@@ -246,7 +246,7 @@ def get_positive_negative_saliency(gradient):
     return pos_saliency, neg_saliency
 
 
-def get_example_params(example_index):
+def get_example_params(example_index, relative_path='../', model_fn=models.alexnet):
     """
         Gets used variables for almost all visualizations, like the image, model etc.
 
@@ -261,10 +261,10 @@ def get_example_params(example_index):
         pretrained_model(Pytorch model): Model to use for the operations
     """
     # Pick one of the examples
-    example_list = (('../input_images/snake.jpg', 56),
-                    ('../input_images/cat_dog.png', 243),
-                    ('../input_images/spider.png', 72))
-    img_path = example_list[example_index][0]
+    example_list = (('input_images/snake.jpg', 56),
+                    ('input_images/cat_dog.png', 243),
+                    ('input_images/spider.png', 72))
+    img_path = relative_path+example_list[example_index][0]
     target_class = example_list[example_index][1]
     file_name_to_export = img_path[img_path.rfind('/')+1:img_path.rfind('.')]
     # Read image
@@ -272,7 +272,7 @@ def get_example_params(example_index):
     # Process image
     prep_img = preprocess_image(original_image)
     # Define model
-    pretrained_model = models.alexnet(pretrained=True)
+    pretrained_model = model_fn(pretrained=True)
     return (original_image,
             prep_img,
             target_class,
